@@ -15,12 +15,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Unzip project if it was uploaded as a zip
+        run: |
+          if [ -z "$(find . -name settings.gradle.kts -not -path './.git/*' | head -n 1)" ]; then
+            z=$(find . -iname '*.zip' -not -path './.git/*' | head -n 1)
+            if [ -n "$z" ]; then
+              echo "Unzipping $z"
+              unzip -q -o "$z" -d _project
+            fi
+          fi
+
       - name: Find Gradle project folder
         id: find
         run: |
-          f=$(find . -name settings.gradle.kts | head -n 1)
+          f=$(find . -name settings.gradle.kts -not -path './.git/*' | head -n 1)
           if [ -z "$f" ]; then
-            echo "settings.gradle.kts not found in repo"
+            echo "settings.gradle.kts not found in repo or zip"
             exit 1
           fi
           echo "dir=$(dirname "$f")" >> "$GITHUB_OUTPUT"
@@ -46,16 +56,6 @@ jobs:
           mkdir -p release
           cp app/build/outputs/apk/debug/app-debug.apk release/ShareXPro-debug.apk
           cp app/build/outputs/apk/release/app-release.apk release/ShareXPro-release.apk
-
-      - name: Commit APKs into release folder
-        working-directory: ${{ steps.find.outputs.dir }}
-        run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add release/*.apk
-          git commit -m "Add APK build ${{ github.run_number }} [skip ci]" || echo "nothing to commit"
-          git pull --rebase || true
-          git push
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
